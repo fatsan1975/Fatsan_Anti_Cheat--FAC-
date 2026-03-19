@@ -59,5 +59,10 @@ public final class CorroborationService {
     }
   }
 
+  /** Removes all corroboration evidence for the given player. Called on disconnect. */
+  public void clearPlayer(String playerId) {
+    entriesByPlayer.remove(playerId);
+  }
+
   private record Entry(long timeMillis, CheckCategory category) {}
 }

@@ -11,8 +11,8 @@ final class HitIntervalBurstCheckTest {
   void flagsUltraFastHitBurst() {
     HitIntervalBurstCheck check = new HitIntervalBurstCheck(2);
     for (int i = 0; i < 5; i++) {
-      check.evaluate(new CombatHitEvent("p", System.nanoTime(), 2.9D, false, false, 0.0F, false, false, 30_000_000L));
+      check.evaluate(new CombatHitEvent("p", System.nanoTime(), 2.9D, false, false, 0.0F, false, false, 30_000_000L, ""));
     }
-    assertTrue(check.evaluate(new CombatHitEvent("p", System.nanoTime(), 2.8D, false, false, 0.0F, false, false, 30_000_000L)).suspicious());
+    assertTrue(check.evaluate(new CombatHitEvent("p", System.nanoTime(), 2.8D, false, false, 0.0F, false, false, 30_000_000L, "")).suspicious());
   }
 }

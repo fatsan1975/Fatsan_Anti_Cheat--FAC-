@@ -11,8 +11,8 @@ final class CombatProtocolTimingMismatchCheckTest {
   void flagsCombatTimingMismatch() {
     CombatProtocolTimingMismatchCheck check = new CombatProtocolTimingMismatchCheck(1);
     for (int i = 0; i < 8; i++) {
-      check.evaluate(new CombatHitEvent("p", System.nanoTime(), 3.2D, false, true, 0.0F, false, false, 30_000_000L));
+      check.evaluate(new CombatHitEvent("p", System.nanoTime(), 3.2D, false, true, 0.0F, false, false, 30_000_000L, ""));
     }
-    assertTrue(check.evaluate(new CombatHitEvent("p", System.nanoTime(), 3.3D, false, true, 0.0F, false, false, 29_000_000L)).suspicious());
+    assertTrue(check.evaluate(new CombatHitEvent("p", System.nanoTime(), 3.3D, false, true, 0.0F, false, false, 29_000_000L, "")).suspicious());
   }
 }

@@ -6,10 +6,12 @@ import io.fatsan.fac.model.CombatHitEvent;
 import io.fatsan.fac.model.InventoryClickEventSignal;
 import io.fatsan.fac.model.KeepAliveSignal;
 import io.fatsan.fac.model.MovementEvent;
+import io.fatsan.fac.model.PlayerStateEvent;
 import io.fatsan.fac.model.RotationEvent;
 import io.fatsan.fac.model.TeleportSignal;
 import io.fatsan.fac.service.PlayerSignalTracker;
 import io.fatsan.fac.service.PlayerStateService;
+import io.fatsan.fac.service.VelocityTracker;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
@@ -36,6 +38,8 @@ public final class BukkitSignalBridge implements Listener {
   private final PlayerSignalTracker tracker;
   private final PlayerStateService playerStateService;
   private final int keepAliveSampleIntervalMillis;
+  private final io.fatsan.fac.engine.AntiCheatEngine engine;
+  private final VelocityTracker velocityTracker;
   private static final long ITEM_CONTEXT_CACHE_TTL_NANOS = 2_000_000_000L;
   private static final Map<Integer, CachedItemContext> ITEM_CONTEXT_CACHE = new ConcurrentHashMap<>();
 
@@ -43,11 +47,15 @@ public final class BukkitSignalBridge implements Listener {
       PacketIntakeService intake,
       PlayerSignalTracker tracker,
       PlayerStateService playerStateService,
-      int keepAliveSampleIntervalMillis) {
+      int keepAliveSampleIntervalMillis,
+      io.fatsan.fac.engine.AntiCheatEngine engine,
+      VelocityTracker velocityTracker) {
     this.intake = intake;
     this.tracker = tracker;
     this.playerStateService = playerStateService;
     this.keepAliveSampleIntervalMillis = keepAliveSampleIntervalMillis;
+    this.engine = engine;
+    this.velocityTracker = velocityTracker;
   }
 
   @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
@@ -80,6 +88,28 @@ public final class BukkitSignalBridge implements Listener {
             player.isGliding(),
             player.isInsideVehicle(),
             interval));
+    org.bukkit.util.Vector vel = player.getVelocity();
+    intake.emit(
+        new PlayerStateEvent(
+            playerId(player),
+            now,
+            deltaXZ,
+            dy,
+            player.isOnGround(),
+            player.isSprinting(),
+            player.isSneaking(),
+            player.isHandRaised() && !player.isBlocking(),
+            player.isBlocking(),
+            player.isInWater(),
+            player.isInLava(),
+            player.isClimbing(),
+            player.isGliding(),
+            player.isInsideVehicle(),
+            vel.getX(),
+            vel.getY(),
+            vel.getZ(),
+            interval));
+    velocityTracker.recordVelocity(playerId(player), vel.getX(), vel.getY(), vel.getZ());
     intake.emit(new RotationEvent(playerId(player), now, dyaw, dpitch));
     if (tracker.shouldSampleKeepAlive(player.getUniqueId(), now, keepAliveSampleIntervalMillis)) {
       intake.emit(new KeepAliveSignal(playerId(player), now, player.getPing()));
@@ -95,6 +125,7 @@ public final class BukkitSignalBridge implements Listener {
     long interval = tracker.intervalHit(player.getUniqueId(), now);
     double distance = player.getLocation().distance(event.getEntity().getLocation());
     boolean critLike = !player.isOnGround() && player.getFallDistance() > 0.0F;
+    String targetId = event.getEntity().getUniqueId().toString();
     intake.emit(
         new CombatHitEvent(
             playerId(player),
@@ -105,7 +136,12 @@ public final class BukkitSignalBridge implements Listener {
             player.getFallDistance(),
             player.isGliding(),
             player.isInsideVehicle(),
-            interval));
+            interval,
+            targetId));
+    // Record expected knockback so AntiKBCheck can compare against observed velocity
+    if (event.getEntity() instanceof Player target) {
+      velocityTracker.expectKnockback(target.getUniqueId().toString(), 0.4, 0.4);
+    }
   }
 
   @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
@@ -114,7 +150,8 @@ public final class BukkitSignalBridge implements Listener {
     long now = System.nanoTime();
     long interval = tracker.intervalPlace(player.getUniqueId(), now);
     double horizontal = player.getVelocity().setY(0).length();
-    intake.emit(new BlockPlaceEventSignal(playerId(player), now, interval, player.isSprinting(), horizontal));
+    String itemKey = event.getItemInHand().getType().getKey().getKey();
+    intake.emit(new BlockPlaceEventSignal(playerId(player), now, interval, player.isSprinting(), horizontal, itemKey));
   }
 
   @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
@@ -153,7 +190,8 @@ public final class BukkitSignalBridge implements Listener {
     long now = System.nanoTime();
     long interval = tracker.intervalInventoryClick(player.getUniqueId(), now);
     boolean movingFast = player.getVelocity().setY(0).length() > 0.23D;
-    intake.emit(new InventoryClickEventSignal(playerId(player), now, interval, movingFast));
+    boolean offhandSwap = event.getSlot() == 40; // slot 40 = offhand in player inventory
+    intake.emit(new InventoryClickEventSignal(playerId(player), now, interval, movingFast, offhandSwap));
   }
 
   @EventHandler(priority = EventPriority.MONITOR)
@@ -166,8 +204,14 @@ public final class BukkitSignalBridge implements Listener {
 
   @EventHandler
   public void onQuit(PlayerQuitEvent event) {
+    String playerId = event.getPlayer().getUniqueId().toString();
     tracker.clear(event.getPlayer().getUniqueId());
     playerStateService.clear(event.getPlayer().getUniqueId());
+    velocityTracker.clearPlayer(playerId);
+    // Release all per-player check state (buffers, window trackers, streak counters)
+    intake.registry().clearPlayer(playerId);
+    // Release all per-player service state (risk, trust, suspicion pattern, corroboration)
+    engine.clearPlayer(playerId);
   }
 
   @EventHandler

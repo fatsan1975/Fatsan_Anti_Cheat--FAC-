@@ -43,6 +43,11 @@ public final class PlayerTrustService {
     return trustByPlayer.getOrDefault(playerId, INITIAL_TRUST);
   }
 
+  /** Removes trust state for the given player. Called on disconnect. */
+  public void clearPlayer(String playerId) {
+    trustByPlayer.remove(playerId);
+  }
+
   private static double categoryPenaltyWeight(CheckCategory category) {
     return switch (category) {
       case PROTOCOL -> 0.05D;

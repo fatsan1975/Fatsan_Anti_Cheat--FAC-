@@ -11,8 +11,8 @@ final class CombatIntervalVarianceLockCheckTest {
   void flagsLockedCombatIntervals() {
     CombatIntervalVarianceLockCheck check = new CombatIntervalVarianceLockCheck(1);
     for (int i = 0; i < 10; i++) {
-      check.evaluate(new CombatHitEvent("p", System.nanoTime(), 3.1D, false, true, 0.0F, false, false, 80_000_000L));
+      check.evaluate(new CombatHitEvent("p", System.nanoTime(), 3.1D, false, true, 0.0F, false, false, 80_000_000L, ""));
     }
-    assertTrue(check.evaluate(new CombatHitEvent("p", System.nanoTime(), 3.1D, false, true, 0.0F, false, false, 81_000_000L)).suspicious());
+    assertTrue(check.evaluate(new CombatHitEvent("p", System.nanoTime(), 3.1D, false, true, 0.0F, false, false, 81_000_000L, "")).suspicious());
   }
 }

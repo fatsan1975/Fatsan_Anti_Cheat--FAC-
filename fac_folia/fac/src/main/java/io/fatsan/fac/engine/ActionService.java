@@ -168,4 +168,14 @@ public final class ActionService {
       return ActionMode.ALERT;
     }
   }
+
+  /** Removes all action cooldown state and cached protocol profile for the given player. Called on disconnect. */
+  public void clearPlayer(String playerId) {
+    actionRateLimiterService.clearPlayer(playerId);
+    try {
+      protocolProfileResolver.clearPlayer(UUID.fromString(playerId));
+    } catch (IllegalArgumentException ignored) {
+      // playerId is not a valid UUID — skip cache eviction
+    }
+  }
 }

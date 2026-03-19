@@ -9,7 +9,8 @@ public sealed interface NormalizedEvent
         InventoryClickEventSignal,
         KeepAliveSignal,
         TeleportSignal,
-        TrafficSignal {
+        TrafficSignal,
+        PlayerStateEvent {
   String playerId();
 
   long nanoTime();

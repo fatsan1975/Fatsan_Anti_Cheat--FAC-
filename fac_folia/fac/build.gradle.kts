@@ -15,8 +15,13 @@ java {
   toolchain.languageVersion = JavaLanguageVersion.of(21)
 }
 
+repositories {
+  maven("https://repo.codemc.io/repository/maven-releases/")
+}
+
 dependencies {
   paperweight.foliaDevBundle("1.21.11-R0.1-SNAPSHOT")
+  compileOnly("com.github.retrooper:packetevents-spigot:2.7.0")
   testImplementation(platform("org.junit:junit-bom:5.10.2"))
   testImplementation("org.junit.jupiter:junit-jupiter")
   testRuntimeOnly("org.junit.platform:junit-platform-launcher")

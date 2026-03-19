@@ -11,8 +11,8 @@ final class InventoryBurstWhileMovingCheckTest {
   void flagsInventoryBurstWhileMovingFast() {
     InventoryBurstWhileMovingCheck check = new InventoryBurstWhileMovingCheck(2);
     for (int i = 0; i < 5; i++) {
-      check.evaluate(new InventoryClickEventSignal("p", System.nanoTime(), 70_000_000L, true));
+      check.evaluate(new InventoryClickEventSignal("p", System.nanoTime(), 70_000_000L, true, false));
     }
-    assertTrue(check.evaluate(new InventoryClickEventSignal("p", System.nanoTime(), 70_000_000L, true)).suspicious());
+    assertTrue(check.evaluate(new InventoryClickEventSignal("p", System.nanoTime(), 70_000_000L, true, false)).suspicious());
   }
 }

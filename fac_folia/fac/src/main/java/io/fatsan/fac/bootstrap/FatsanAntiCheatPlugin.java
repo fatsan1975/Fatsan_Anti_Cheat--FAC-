@@ -20,6 +20,9 @@ import io.fatsan.fac.service.PremiumInsightsService;
 import io.fatsan.fac.service.PremiumLicenseService;
 import io.fatsan.fac.service.RiskService;
 import io.fatsan.fac.service.SuspicionPatternService;
+import io.fatsan.fac.service.VelocityTracker;
+import io.fatsan.fac.service.MovementPhysicsValidator;
+import io.fatsan.fac.model.EvidenceRecord;
 import java.util.List;
 import java.util.Locale;
 import java.util.logging.Level;
@@ -62,6 +65,12 @@ public final class FatsanAntiCheatPlugin extends JavaPlugin {
       }
       long events = engine == null ? 0 : engine.processedEvents();
       long suspicious = engine == null ? 0 : engine.suspiciousResults();
+      long evaluations = engine == null ? 0 : engine.totalEvaluations();
+      long skipped = engine == null ? 0 : engine.totalSkipped();
+      int checks = engine == null ? 0 : engine.registeredCheckCount();
+      long total = evaluations + skipped;
+      String skipRatio = total == 0 ? "n/a"
+          : String.format(Locale.ROOT, "%.1f%%", 100.0 * skipped / total);
       sender.sendMessage(
           "[FAC] status profile="
               + (facConfig == null ? "unknown" : facConfig.performanceProfile())
@@ -73,6 +82,15 @@ public final class FatsanAntiCheatPlugin extends JavaPlugin {
               + events
               + " suspicious="
               + suspicious);
+      sender.sendMessage(
+          "[FAC] checks="
+              + checks
+              + " evaluations="
+              + evaluations
+              + " skipped="
+              + skipped
+              + " skip-ratio="
+              + skipRatio);
       return true;
     }
 
@@ -140,6 +158,28 @@ public final class FatsanAntiCheatPlugin extends JavaPlugin {
         sender.sendMessage("[FAC] Missing permission: fac.admin");
         return true;
       }
+
+      // /fac dq <playerId> — show recent evidence for a specific player
+      if (args.length >= 2) {
+        String targetId = args[1];
+        List<EvidenceRecord> evidence = engine == null ? List.of() : engine.evidenceSnapshot(targetId);
+        if (evidence.isEmpty()) {
+          sender.sendMessage("[FAC] dq no evidence for " + targetId);
+        } else {
+          sender.sendMessage("[FAC] dq evidence for " + targetId + " (" + evidence.size() + " records):");
+          int shown = 0;
+          for (int i = evidence.size() - 1; i >= 0 && shown < 10; i--, shown++) {
+            EvidenceRecord rec = evidence.get(i);
+            sender.sendMessage(
+                "  " + rec.checkName()
+                    + " sev=" + String.format(Locale.ROOT, "%.2f", rec.severity())
+                    + " reason=" + rec.reason());
+          }
+        }
+        return true;
+      }
+
+      // /fac dq — show global data quality telemetry
       NextLevelAntiCheatPlatform.DataQualitySnapshot dq = nextLevelPlatform.dataQuality();
       sender.sendMessage("[FAC] dq events=" + dq.events() + " parseErrors=" + dq.parseErrors() + " outOfOrder=" + dq.outOfOrder() + " missing=" + dq.missingFields());
       NextLevelAntiCheatPlatform.NextLevelStatus status = nextLevelPlatform.status();
@@ -220,8 +260,10 @@ public final class FatsanAntiCheatPlugin extends JavaPlugin {
     PlayerTrustService playerTrustService = new PlayerTrustService();
     SuspicionPatternService suspicionPatternService = new SuspicionPatternService();
 
+    VelocityTracker velocityTracker = new VelocityTracker();
+    MovementPhysicsValidator physicsValidator = new MovementPhysicsValidator();
     CheckRegistry checkRegistry =
-        CheckRegistry.standard(facConfig, evidenceService, nextLevelPlatform);
+        CheckRegistry.standard(facConfig, evidenceService, nextLevelPlatform, velocityTracker, physicsValidator);
     PacketIntakeService packetIntakeService =
         new PacketIntakeService(checkRegistry, facConfig.maxEventsPerSecond());
     this.engine =
@@ -233,7 +275,8 @@ public final class FatsanAntiCheatPlugin extends JavaPlugin {
             playerTrustService,
             suspicionPatternService,
             actionPolicyService,
-            nextLevelPlatform);
+            nextLevelPlatform,
+            evidenceService);
     this.engine.start();
 
     PlayerSignalTracker tracker = new PlayerSignalTracker();
@@ -242,7 +285,9 @@ public final class FatsanAntiCheatPlugin extends JavaPlugin {
             packetIntakeService,
             tracker,
             playerStateService,
-            facConfig.keepAliveSampleIntervalMillis());
+            facConfig.keepAliveSampleIntervalMillis(),
+            this.engine,
+            velocityTracker);
     getServer().getPluginManager().registerEvents(this.bridge, this);
 
     if (facConfig.worldSeedGuardEnabled()) {

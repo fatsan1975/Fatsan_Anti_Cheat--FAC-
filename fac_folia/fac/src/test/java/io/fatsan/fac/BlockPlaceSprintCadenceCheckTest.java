@@ -11,8 +11,8 @@ final class BlockPlaceSprintCadenceCheckTest {
   void flagsSprintPlaceCadenceLock() {
     BlockPlaceSprintCadenceCheck check = new BlockPlaceSprintCadenceCheck(1);
     for (int i = 0; i < 10; i++) {
-      check.evaluate(new BlockPlaceEventSignal("p", System.nanoTime(), 45_000_000L, true, 0.34D));
+      check.evaluate(new BlockPlaceEventSignal("p", System.nanoTime(), 45_000_000L, true, 0.34D, "stone"));
     }
-    assertTrue(check.evaluate(new BlockPlaceEventSignal("p", System.nanoTime(), 44_000_000L, true, 0.33D)).suspicious());
+    assertTrue(check.evaluate(new BlockPlaceEventSignal("p", System.nanoTime(), 44_000_000L, true, 0.33D, "stone")).suspicious());
   }
 }

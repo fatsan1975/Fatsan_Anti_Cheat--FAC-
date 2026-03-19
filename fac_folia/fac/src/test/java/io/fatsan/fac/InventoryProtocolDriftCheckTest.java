@@ -11,8 +11,8 @@ final class InventoryProtocolDriftCheckTest {
   void flagsInventoryProtocolDrift() {
     InventoryProtocolDriftCheck check = new InventoryProtocolDriftCheck(1);
     for (int i = 0; i < 8; i++) {
-      check.evaluate(new InventoryClickEventSignal("p", System.nanoTime(), 15_000_000L, false));
+      check.evaluate(new InventoryClickEventSignal("p", System.nanoTime(), 15_000_000L, false, false));
     }
-    assertTrue(check.evaluate(new InventoryClickEventSignal("p", System.nanoTime(), 14_000_000L, false)).suspicious());
+    assertTrue(check.evaluate(new InventoryClickEventSignal("p", System.nanoTime(), 14_000_000L, false, false)).suspicious());
   }
 }

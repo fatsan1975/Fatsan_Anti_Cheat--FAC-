@@ -14,17 +14,17 @@ final class CriticalCadenceAbuseCheckTest {
 
     check.evaluate(
         new CombatHitEvent(
-            "player", System.nanoTime(), 2.8D, true, false, 0.14F, false, false, 85_000_000L));
+            "player", System.nanoTime(), 2.8D, true, false, 0.14F, false, false, 85_000_000L, ""));
     check.evaluate(
         new CombatHitEvent(
-            "player", System.nanoTime(), 2.8D, true, false, 0.16F, false, false, 80_000_000L));
+            "player", System.nanoTime(), 2.8D, true, false, 0.16F, false, false, 80_000_000L, ""));
     check.evaluate(
         new CombatHitEvent(
-            "player", System.nanoTime(), 2.9D, true, false, 0.13F, false, false, 90_000_000L));
+            "player", System.nanoTime(), 2.9D, true, false, 0.13F, false, false, 90_000_000L, ""));
     assertTrue(
         check.evaluate(
                 new CombatHitEvent(
-                    "player", System.nanoTime(), 2.9D, true, false, 0.15F, false, false, 85_000_000L))
+                    "player", System.nanoTime(), 2.9D, true, false, 0.15F, false, false, 85_000_000L, ""))
             .suspicious());
   }
 
@@ -35,7 +35,7 @@ final class CriticalCadenceAbuseCheckTest {
     assertFalse(
         check.evaluate(
                 new CombatHitEvent(
-                    "player", System.nanoTime(), 2.8D, true, false, 0.2F, false, false, 180_000_000L))
+                    "player", System.nanoTime(), 2.8D, true, false, 0.2F, false, false, 180_000_000L, ""))
             .suspicious());
   }
 }

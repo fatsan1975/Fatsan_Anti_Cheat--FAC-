@@ -14,11 +14,11 @@ final class ImpossibleCriticalCheckTest {
 
     check.evaluate(
         new CombatHitEvent(
-            "player", System.nanoTime(), 2.9D, true, true, 0.0F, false, false, 80_000_000L));
+            "player", System.nanoTime(), 2.9D, true, true, 0.0F, false, false, 80_000_000L, ""));
     assertTrue(
         check.evaluate(
                 new CombatHitEvent(
-                    "player", System.nanoTime(), 2.8D, true, true, 0.0F, false, false, 80_000_000L))
+                    "player", System.nanoTime(), 2.8D, true, true, 0.0F, false, false, 80_000_000L, ""))
             .suspicious());
   }
 
@@ -29,7 +29,7 @@ final class ImpossibleCriticalCheckTest {
     assertFalse(
         check.evaluate(
                 new CombatHitEvent(
-                    "player", System.nanoTime(), 2.9D, true, false, 0.35F, false, false, 80_000_000L))
+                    "player", System.nanoTime(), 2.9D, true, false, 0.35F, false, false, 80_000_000L, ""))
             .suspicious());
   }
 }

@@ -13,15 +13,15 @@ final class ReachSpikeClusterCheckTest {
     ReachSpikeClusterCheck check = new ReachSpikeClusterCheck(2);
     long base = System.nanoTime();
 
-    check.evaluate(new CombatHitEvent("player", base, 3.30D, false, false, 0.0F, false, false, 80_000_000L));
+    check.evaluate(new CombatHitEvent("player", base, 3.30D, false, false, 0.0F, false, false, 80_000_000L, ""));
     check.evaluate(
-        new CombatHitEvent("player", base + 200_000_000L, 3.40D, false, false, 0.0F, false, false, 80_000_000L));
+        new CombatHitEvent("player", base + 200_000_000L, 3.40D, false, false, 0.0F, false, false, 80_000_000L, ""));
     check.evaluate(
-        new CombatHitEvent("player", base + 350_000_000L, 3.45D, false, false, 0.0F, false, false, 80_000_000L));
+        new CombatHitEvent("player", base + 350_000_000L, 3.45D, false, false, 0.0F, false, false, 80_000_000L, ""));
     assertTrue(
         check.evaluate(
                 new CombatHitEvent(
-                    "player", base + 500_000_000L, 3.42D, false, false, 0.0F, false, false, 80_000_000L))
+                    "player", base + 500_000_000L, 3.42D, false, false, 0.0F, false, false, 80_000_000L, ""))
             .suspicious());
   }
 
@@ -30,11 +30,11 @@ final class ReachSpikeClusterCheckTest {
     ReachSpikeClusterCheck check = new ReachSpikeClusterCheck(2);
     long base = System.nanoTime();
 
-    check.evaluate(new CombatHitEvent("player", base, 3.10D, false, false, 0.0F, false, false, 80_000_000L));
+    check.evaluate(new CombatHitEvent("player", base, 3.10D, false, false, 0.0F, false, false, 80_000_000L, ""));
     assertFalse(
         check.evaluate(
                 new CombatHitEvent(
-                    "player", base + 1_200_000_000L, 3.20D, false, false, 0.0F, false, false, 80_000_000L))
+                    "player", base + 1_200_000_000L, 3.20D, false, false, 0.0F, false, false, 80_000_000L, ""))
             .suspicious());
   }
 }

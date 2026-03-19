@@ -40,6 +40,16 @@ abstract class AbstractBufferedCheck implements Check {
     return value >= limit;
   }
 
+  /**
+   * Removes all buffer state for the given player.
+   * Called automatically by {@link io.fatsan.fac.engine.CheckRegistry#clearPlayer(String)}
+   * when a player disconnects.
+   */
+  @Override
+  public void onPlayerQuit(String playerId) {
+    buffers.remove(playerId);
+  }
+
   /** Visible for tests to deterministically control decay behavior. */
   protected long nowNanos() {
     return System.nanoTime();

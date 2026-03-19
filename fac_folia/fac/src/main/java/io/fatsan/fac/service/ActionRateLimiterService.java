@@ -57,4 +57,11 @@ public final class ActionRateLimiterService {
         });
     return granted[0];
   }
+
+  /** Removes all cooldown state for the given player. Called on disconnect. */
+  public void clearPlayer(String playerId) {
+    lastAlertAt.remove(playerId);
+    lastSetbackAt.remove(playerId);
+    lastKickAt.remove(playerId);
+  }
 }

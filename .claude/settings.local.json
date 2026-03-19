@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew test:*)",
+      "Bash(./gradlew --stop)",
+      "Bash(./gradlew compileJava)",
+      "Bash(grep -h 'tests=' \"C:\\\\Users\\\\fatih\\\\Documents\\\\Fatsan_Anti_Cheat--FAC--main\\\\fac_folia\\\\fac\\\\build\\\\test-results\\\\test\"/*.xml)",
+      "Bash(./gradlew dependencies:*)",
+      "Bash(xargs grep:*)",
+      "Bash(./gradlew compileJava compileTestJava)",
+      "Bash(grep -oh 'tests=\"\"\"\"[0-9]*\"\"\"\"' build/test-results/test/*.xml)",
+      "Bash(for f:*)",
+      "Bash(do)",
+      "Bash(sed -i 's/new CombatHitEvent\\(\\\\\\([^\\)]*\\\\\\)\\)/new CombatHitEvent\\(\\\\1, \"\"\"\"\\)/g' \"$f\")",
+      "Bash(done)",
+      "Bash(./gradlew compileTestJava)",
+      "Bash(ls \"C:\\\\Users\\\\fatih\\\\Documents\\\\Fatsan_Anti_Cheat--FAC--main\\\\fac_folia\\\\fac\\\\src\\\\test\\\\java\\\\io\\\\fatsan\\\\fac\"\" | grep -i -E \"tower)",
+      "Bash(autocrystal)",
+      "Bash(multiTarget \")",
+      "Skill(commit-commands:commit-push-pr)"
+    ]
+  }
+}

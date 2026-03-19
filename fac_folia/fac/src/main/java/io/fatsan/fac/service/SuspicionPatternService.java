@@ -67,6 +67,11 @@ public final class SuspicionPatternService {
     state.decayRecent(now);
     return state.recentIntensity;
   }
+
+  /** Removes all suspicion pattern state for the given player. Called on disconnect. */
+  public void clearPlayer(String playerId) {
+    states.remove(playerId);
+  }
   private static double categoryBias(CheckCategory category) {
     return switch (category) {
       case COMBAT -> 0.06D;

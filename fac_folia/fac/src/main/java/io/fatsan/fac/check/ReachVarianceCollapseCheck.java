@@ -4,17 +4,34 @@ import io.fatsan.fac.model.CheckCategory;
 import io.fatsan.fac.model.CheckResult;
 import io.fatsan.fac.model.CombatHitEvent;
 import io.fatsan.fac.model.NormalizedEvent;
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
-public final class ReachVarianceCollapseCheck extends AbstractBufferedCheck {
-  private static final int WINDOW = 6;
-  private final Map<String, Deque<Double>> reachWindow = new ConcurrentHashMap<>();
+/**
+ * Detects unnaturally uniform reach distances — a pattern consistent with
+ * reach-hack clients that maintain a fixed attack distance with near-zero
+ * natural variance.
+ *
+ * <p>Legitimate players exhibit small fluctuations in reach distance due to
+ * latency, movement interpolation, and target-entity hitbox changes.  A
+ * suspicious collapse of variance (very low CV) combined with a mean distance
+ * above the vanilla interaction threshold is flagged.
+ *
+ * <p>Uses the shared {@link AbstractWindowCheck} base class to avoid duplicating
+ * sliding-window and variance-computation logic.
+ */
+public final class ReachVarianceCollapseCheck extends AbstractWindowCheck {
+
+  /** Mean reach distance above which variance collapse becomes suspicious. */
+  private static final double SUSPICIOUS_MEAN_THRESHOLD = 3.1D;
+
+  /**
+   * Maximum coefficient-of-variation (stddev / mean) considered "collapsed".
+   * Below this, the timing is unnaturally uniform.
+   */
+  private static final double MAX_CV_COLLAPSED = 0.025D;
+
 
   public ReachVarianceCollapseCheck(int limit) {
-    super(limit);
+    super(limit, 8);
   }
 
   @Override
@@ -33,25 +50,25 @@ public final class ReachVarianceCollapseCheck extends AbstractBufferedCheck {
       return CheckResult.clean(name(), category());
     }
 
-    Deque<Double> window = reachWindow.computeIfAbsent(hit.playerId(), ignored -> new ArrayDeque<>(WINDOW));
-    window.addLast(hit.reachDistance());
-    if (window.size() > WINDOW) {
-      window.removeFirst();
-    }
-    if (window.size() < WINDOW) {
+    var ws = stats.record(hit.playerId(), hit.reachDistance());
+    if (!ws.hasEnoughData()) {
       return CheckResult.clean(name(), category());
     }
 
-    double mean = window.stream().mapToDouble(Double::doubleValue).average().orElse(0.0D);
-    double variance = window.stream().mapToDouble(v -> {
-      double d = v - mean;
-      return d * d;
-    }).sum() / window.size();
-
-    if (mean > 3.1D && variance < 0.003D) {
+    if (ws.mean() > SUSPICIOUS_MEAN_THRESHOLD && ws.isUniformlyCadenced(MAX_CV_COLLAPSED)) {
       int buf = incrementBuffer(hit.playerId());
       if (overLimit(buf)) {
-        return new CheckResult(true, name(), category(), "Reach variance collapsed around high mean window", Math.min(1.0D, buf / 8.0D), false);
+        return new CheckResult(
+            true,
+            name(),
+            category(),
+            "Reach variance collapsed around elevated mean (mean="
+                + String.format("%.2f", ws.mean())
+                + " cv="
+                + String.format("%.4f", ws.entropyScore())
+                + ")",
+            Math.min(1.0D, buf / 8.0D),
+            false);
       }
     } else {
       coolDown(hit.playerId());
@@ -60,3 +77,4 @@ public final class ReachVarianceCollapseCheck extends AbstractBufferedCheck {
     return CheckResult.clean(name(), category());
   }
 }
+

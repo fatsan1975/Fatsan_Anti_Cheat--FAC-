@@ -9,5 +9,6 @@ public record CombatHitEvent(
     float fallDistance,
     boolean gliding,
     boolean inVehicle,
-    long intervalNanos)
+    long intervalNanos,
+    String targetId)        // UUID string of the hit entity, empty if unknown
     implements NormalizedEvent {}

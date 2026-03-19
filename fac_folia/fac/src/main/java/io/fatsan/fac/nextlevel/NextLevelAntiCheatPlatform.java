@@ -175,6 +175,25 @@ public final class NextLevelAntiCheatPlatform implements CheckExecutionObserver 
     return new NextLevelStatus(events.get(), suspiciousEvents.get(), labels.size(), falsePositiveFeedback.size(), shadowFlagged.size(), lifecycleByCheck.size());
   }
 
+  /**
+   * Releases all per-player transient telemetry state for the given player.
+   *
+   * <p>Labels and false-positive feedback are intentionally <em>not</em> cleared —
+   * they are permanent operator annotations that should survive reconnects.
+   * Check-level lifecycle, confidence, and latency data are also retained
+   * as they are keyed by check name, not player id.
+   *
+   * @param playerId the disconnecting player's UUID string
+   */
+  public void clearPlayer(String playerId) {
+    lastEventNanos.remove(playerId);
+    sessions.remove(playerId);
+    lastResultByPlayer.remove(playerId);
+    retention.remove(playerId);
+    shadowFlagged.remove(playerId);
+    // traceByAction is keyed by action key (not pure playerId) — leave intact
+  }
+
   private void retentionWrite(String playerId, long nanoTime, String type) {
     Deque<RetentionRecord> queue = retention.computeIfAbsent(playerId, key -> new ArrayDeque<>());
     queue.addLast(new RetentionRecord(nanoTime, type));

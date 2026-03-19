@@ -18,6 +18,9 @@ public final class ActionPolicyService {
   public ResolvedPolicy resolve(String checkName, CheckCategory category) {
     String normalized = checkName.toLowerCase(Locale.ROOT);
 
+    // ── Deep item context ─────────────────────────────────────────────────
+    // custom-mechanics-safe: fully disabled (RPG/modded servers)
+    // default/survival:      review only, elevated tier
     if (isDeepItemContext(normalized)) {
       if (isCustomMechanicsSafe()) {
         return new ResolvedPolicy(ActionDisposition.DISABLED_BY_DEFAULT, SuspicionTier.HOT, "deep-item-context");
@@ -25,23 +28,56 @@ public final class ActionPolicyService {
       return new ResolvedPolicy(ActionDisposition.REVIEW_ONLY, SuspicionTier.HOT, "deep-item-context");
     }
 
+    // ── Via-derived / timing-derived ─────────────────────────────────────
+    // via-heavy profile: always review-only, higher tier requirement
     if (isViaDerived(normalized) || isTimingDerived(normalized)) {
-      return new ResolvedPolicy(ActionDisposition.REVIEW_ONLY, isStrict() ? SuspicionTier.ELEVATED : SuspicionTier.HOT, "via-or-timing-derived");
+      if (isViaHeavy()) {
+        return new ResolvedPolicy(ActionDisposition.REVIEW_ONLY, SuspicionTier.HOT, "via-or-timing-derived");
+      }
+      return new ResolvedPolicy(ActionDisposition.REVIEW_ONLY,
+          isStrict() ? SuspicionTier.ELEVATED : SuspicionTier.HOT, "via-or-timing-derived");
     }
 
+    // ── Protocol noise (keepalive, ping, traffic, teleport) ───────────────
+    // minigame: teleport-heavy, so teleport family is kept at review-only
+    if (isMinigame() && isHighTeleportFamily(normalized)) {
+      return new ResolvedPolicy(ActionDisposition.REVIEW_ONLY, SuspicionTier.ELEVATED, "minigame-teleport");
+    }
     if (isProtocolNoiseFamily(normalized, category)) {
-      return new ResolvedPolicy(ActionDisposition.ALERT_ONLY, isLightweight() ? SuspicionTier.HOT : SuspicionTier.ELEVATED, "protocol-noise");
+      return new ResolvedPolicy(ActionDisposition.ALERT_ONLY,
+          isLightweight() ? SuspicionTier.HOT : SuspicionTier.ELEVATED, "protocol-noise");
     }
 
+    // ── Core punish candidates ────────────────────────────────────────────
+    // strict/practice/pvp: CORROBORATED_KICK
+    // survival: same as default (CORROBORATED_SETBACK) but scaffold/fastbreak slightly more sensitive
+    // minigame: scaffold/fastbreak less relevant, keep at alert-only
     if (isCorePunishCandidate(normalized)) {
-      return new ResolvedPolicy(isStrict() ? ActionDisposition.CORROBORATED_KICK : ActionDisposition.CORROBORATED_SETBACK, SuspicionTier.BASELINE, "core-punish");
+      if (isMinigame() && isBuildWorldFamily(normalized)) {
+        return new ResolvedPolicy(ActionDisposition.ALERT_ONLY, SuspicionTier.ELEVATED, "minigame-build-world");
+      }
+      ActionDisposition disp = isStrict()
+          ? ActionDisposition.CORROBORATED_KICK
+          : ActionDisposition.CORROBORATED_SETBACK;
+      return new ResolvedPolicy(disp, SuspicionTier.BASELINE, "core-punish");
     }
 
+    // ── Statistical families ──────────────────────────────────────────────
+    // strict: can evaluate at ELEVATED tier
+    // survival + build/world: ELEVATED (miners/nukers are more impactful in survival)
+    // lightweight/minigame: pushed to HOT tier
     if (isRedundantStatFamily(normalized)) {
-      return new ResolvedPolicy(ActionDisposition.ALERT_ONLY, isStrict() ? SuspicionTier.ELEVATED : SuspicionTier.HOT, "statistical-family");
+      if (isSurvival() && isBuildWorldFamily(normalized)) {
+        return new ResolvedPolicy(ActionDisposition.ALERT_ONLY, SuspicionTier.ELEVATED, "survival-build-stat");
+      }
+      SuspicionTier minTier = isStrict() ? SuspicionTier.ELEVATED : SuspicionTier.HOT;
+      if (isLightweight() || isMinigame()) minTier = SuspicionTier.HOT;
+      return new ResolvedPolicy(ActionDisposition.ALERT_ONLY, minTier, "statistical-family");
     }
 
-    if (category == CheckCategory.MOVEMENT || category == CheckCategory.COMBAT || category == CheckCategory.WORLD) {
+    // ── Core domain fallback ──────────────────────────────────────────────
+    if (category == CheckCategory.MOVEMENT || category == CheckCategory.COMBAT
+        || category == CheckCategory.WORLD) {
       return new ResolvedPolicy(ActionDisposition.ALERT_ONLY, SuspicionTier.BASELINE, "core-domain");
     }
 
@@ -79,6 +115,35 @@ public final class ActionPolicyService {
     return "custom-mechanics-safe".equals(profile);
   }
 
+  private boolean isMinigame() {
+    return "minigame".equals(profile);
+  }
+
+  private boolean isSurvival() {
+    return "survival".equals(profile);
+  }
+
+  private boolean isViaHeavy() {
+    return "via-heavy".equals(profile);
+  }
+
+  /** Teleport-heavy families that minigame profiles should treat conservatively. */
+  private static boolean isHighTeleportFamily(String normalized) {
+    return normalized.contains("teleport")
+        || normalized.contains("regiontransition")
+        || normalized.contains("bundleconfirm")
+        || normalized.contains("regioniofusion");
+  }
+
+  /** Build/world-interaction families less relevant in minigame environments. */
+  private static boolean isBuildWorldFamily(String normalized) {
+    return normalized.contains("scaffold")
+        || normalized.contains("fastbreak")
+        || normalized.contains("blockbreak")
+        || normalized.contains("blockplace")
+        || normalized.startsWith("break");
+  }
+
   private static boolean isViaDerived(String normalized) {
     return normalized.contains("via")
         || normalized.contains("rewrite")
@@ -112,7 +177,22 @@ public final class ActionPolicyService {
         || normalized.contains("reachheuristic")
         || normalized.contains("impossiblecritical")
         || normalized.contains("fastbreak")
-        || normalized.contains("scaffoldpattern");
+        || normalized.contains("scaffoldpattern")
+        || normalized.equals("noslow")
+        || normalized.equals("jesus")
+        || normalized.equals("antikb")
+        || normalized.equals("movementphysics")
+        || normalized.equals("phase")
+        || normalized.equals("velocitymanipulation")
+        || normalized.equals("glidemimic")
+        || normalized.equals("reachraycast")
+        || normalized.equals("step")
+        || normalized.equals("boatfly")
+        || normalized.equals("spider")
+        || normalized.equals("tower")
+        || normalized.equals("autototem")
+        || normalized.equals("multitargetaura")
+        || normalized.equals("autocrystal");
   }
 
   private static boolean isRedundantStatFamily(String normalized) {

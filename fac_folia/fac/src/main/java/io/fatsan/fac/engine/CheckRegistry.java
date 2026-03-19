@@ -83,6 +83,22 @@ import io.fatsan.fac.check.StrafeAngleDriftCheck;
 import io.fatsan.fac.check.VerticalOscillationCheck;
 import io.fatsan.fac.check.VerticalDirectionFlipCheck;
 import io.fatsan.fac.check.VerticalMotionEnvelopeCheck;
+import io.fatsan.fac.check.NoSlowCheck;
+import io.fatsan.fac.check.JesusCheck;
+import io.fatsan.fac.check.AntiKBCheck;
+import io.fatsan.fac.check.MovementPhysicsCheck;
+import io.fatsan.fac.check.PhaseCheck;
+import io.fatsan.fac.check.VelocityManipulationCheck;
+import io.fatsan.fac.check.TimerFrequencyCheck;
+import io.fatsan.fac.check.GlideMimicCheck;
+import io.fatsan.fac.check.ReachRaycastCheck;
+import io.fatsan.fac.check.StepCheck;
+import io.fatsan.fac.check.BoatFlyCheck;
+import io.fatsan.fac.check.SpiderCheck;
+import io.fatsan.fac.check.TowerCheck;
+import io.fatsan.fac.check.AutoTotemCheck;
+import io.fatsan.fac.check.MultiTargetAuraCheck;
+import io.fatsan.fac.check.AutoCrystalCheck;
 import io.fatsan.fac.config.FacConfig;
 import io.fatsan.fac.model.BlockBreakEventSignal;
 import io.fatsan.fac.model.BlockPlaceEventSignal;
@@ -93,8 +109,11 @@ import io.fatsan.fac.model.KeepAliveSignal;
 import io.fatsan.fac.model.MovementEvent;
 import io.fatsan.fac.model.NormalizedEvent;
 import io.fatsan.fac.model.RotationEvent;
+import io.fatsan.fac.model.PlayerStateEvent;
 import io.fatsan.fac.model.TeleportSignal;
 import io.fatsan.fac.model.TrafficSignal;
+import io.fatsan.fac.service.MovementPhysicsValidator;
+import io.fatsan.fac.service.VelocityTracker;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -110,6 +129,8 @@ public final class CheckRegistry {
   private final Map<Class<? extends NormalizedEvent>, List<Check>> checksByEvent;
   private final EvidenceService evidenceService;
   private final CheckExecutionObserver checkExecutionObserver;
+  private final java.util.concurrent.atomic.LongAdder totalEvaluations = new java.util.concurrent.atomic.LongAdder();
+  private final java.util.concurrent.atomic.LongAdder totalSkipped = new java.util.concurrent.atomic.LongAdder();
 
   private CheckRegistry(
       Map<Class<? extends NormalizedEvent>, List<Check>> checksByEvent,
@@ -120,12 +141,36 @@ public final class CheckRegistry {
     this.checkExecutionObserver = checkExecutionObserver;
   }
 
+  /** Returns the total check evaluations performed since startup. */
+  public long totalEvaluations() {
+    return totalEvaluations.sum();
+  }
+
+  /** Returns the total evaluations skipped by tier/policy gating since startup. */
+  public long totalSkipped() {
+    return totalSkipped.sum();
+  }
+
+  /** Returns the total registered check count across all event types. */
+  public int registeredCheckCount() {
+    return checksByEvent.values().stream().mapToInt(List::size).sum();
+  }
+
   public static CheckRegistry standard(FacConfig config, EvidenceService evidenceService) {
-    return standard(config, evidenceService, CheckExecutionObserver.NOOP);
+    return standard(config, evidenceService, CheckExecutionObserver.NOOP, new VelocityTracker(), new MovementPhysicsValidator());
   }
 
   public static CheckRegistry standard(
       FacConfig config, EvidenceService evidenceService, CheckExecutionObserver checkExecutionObserver) {
+    return standard(config, evidenceService, checkExecutionObserver, new VelocityTracker(), new MovementPhysicsValidator());
+  }
+
+  public static CheckRegistry standard(
+      FacConfig config,
+      EvidenceService evidenceService,
+      CheckExecutionObserver checkExecutionObserver,
+      VelocityTracker velocityTracker,
+      MovementPhysicsValidator physicsValidator) {
     Map<Class<? extends NormalizedEvent>, List<Check>> checks = new HashMap<>();
     java.util.Set<String> disabledChecks = config.disabledChecks();
 
@@ -360,6 +405,28 @@ public final class CheckRegistry {
     register(checks, config, disabledChecks, RotationEvent.class, new io.fatsan.fac.check.RotationDeepMetaCouplingCheck(config.rotationJitterPatternBufferLimit()));
     register(checks, config, disabledChecks, RotationEvent.class, new io.fatsan.fac.check.RotationViaWindowSnapCheck(config.rotationQuantizationBufferLimit()));
 
+    // ── Iteration 8: New premium-quality checks ───────────────────────────────
+    register(checks, config, disabledChecks, PlayerStateEvent.class, new NoSlowCheck(config.speedEnvelopeBufferLimit()));
+    register(checks, config, disabledChecks, PlayerStateEvent.class, new JesusCheck(config.speedEnvelopeBufferLimit()));
+    register(checks, config, disabledChecks, PlayerStateEvent.class, new AntiKBCheck(config.reachBufferLimit(), velocityTracker));
+    register(checks, config, disabledChecks, PlayerStateEvent.class, new VelocityManipulationCheck(config.speedEnvelopeBufferLimit(), velocityTracker));
+    register(checks, config, disabledChecks, MovementEvent.class, new MovementPhysicsCheck(config.speedEnvelopeBufferLimit(), physicsValidator));
+    register(checks, config, disabledChecks, MovementEvent.class, new PhaseCheck(config.speedEnvelopeBufferLimit()));
+    register(checks, config, disabledChecks, MovementEvent.class, new TimerFrequencyCheck(config.timerBufferLimit()));
+    register(checks, config, disabledChecks, MovementEvent.class, new GlideMimicCheck(config.speedEnvelopeBufferLimit()));
+    register(checks, config, disabledChecks, CombatHitEvent.class, new ReachRaycastCheck(config.reachBufferLimit()));
+
+    // ── Iteration 9: Client-mod specific checks ───────────────────────────────
+    register(checks, config, disabledChecks, MovementEvent.class, new StepCheck(config.speedEnvelopeBufferLimit()));
+    register(checks, config, disabledChecks, MovementEvent.class, new BoatFlyCheck(config.speedEnvelopeBufferLimit()));
+    register(checks, config, disabledChecks, MovementEvent.class, new SpiderCheck(config.speedEnvelopeBufferLimit()));
+    register(checks, config, disabledChecks, BlockPlaceEventSignal.class, new TowerCheck(config.scaffoldBufferLimit()));
+    register(checks, config, disabledChecks, InventoryClickEventSignal.class, new AutoTotemCheck(config.inventoryMoveBufferLimit()));
+
+    // ── Iteration 10 ─────────────────────────────────────────────────────────
+    register(checks, config, disabledChecks, CombatHitEvent.class, new MultiTargetAuraCheck(config.reachBufferLimit()));
+    register(checks, config, disabledChecks, BlockPlaceEventSignal.class, new AutoCrystalCheck(config.scaffoldBufferLimit()));
+
     return new CheckRegistry(checks, evidenceService, checkExecutionObserver);
   }
 
@@ -373,8 +440,10 @@ public final class CheckRegistry {
     List<CheckResult> suspicious = new ArrayList<>(2);
     for (Check check : checks) {
       if (!actionPolicyService.shouldEvaluate(check.name(), check.category(), tier)) {
+        totalSkipped.increment();
         continue;
       }
+      totalEvaluations.increment();
       long startNanos = System.nanoTime();
       boolean failed = false;
       try {
@@ -394,6 +463,31 @@ public final class CheckRegistry {
       }
     }
     return suspicious;
+  }
+
+  /**
+   * Notifies all registered checks that the given player has disconnected.
+   *
+   * <p>Each check's {@link io.fatsan.fac.check.Check#onPlayerQuit(String)} is
+   * invoked, allowing checks to release per-player state (buffers, window
+   * trackers, streak counters).  This prevents unbounded memory growth on
+   * servers with high player turnover.
+   *
+   * <p>Should be called from {@link io.fatsan.fac.packet.BukkitSignalBridge}
+   * inside the {@code PlayerQuitEvent} handler.
+   *
+   * @param playerId the disconnecting player's UUID string
+   */
+  public void clearPlayer(String playerId) {
+    for (List<io.fatsan.fac.check.Check> checks : checksByEvent.values()) {
+      for (io.fatsan.fac.check.Check check : checks) {
+        try {
+          check.onPlayerQuit(playerId);
+        } catch (Throwable ignored) {
+          // never let a cleanup failure affect the disconnect path
+        }
+      }
+    }
   }
 
   private static void register(

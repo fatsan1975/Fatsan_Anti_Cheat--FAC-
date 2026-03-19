@@ -14,6 +14,11 @@ public final class ProtocolProfileResolver {
 
   private final Map<UUID, CacheEntry> cache = new ConcurrentHashMap<>();
 
+  /** Removes the cached protocol profile for the given player. Called on disconnect. */
+  public void clearPlayer(UUID playerId) {
+    cache.remove(playerId);
+  }
+
   public ProtocolProfile resolve(Player player) {
     UUID uuid = player.getUniqueId();
     long now = System.nanoTime();

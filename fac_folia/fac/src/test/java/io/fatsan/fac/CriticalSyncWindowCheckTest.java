@@ -11,8 +11,8 @@ final class CriticalSyncWindowCheckTest {
   void flagsTightCriticalTimingStreak() {
     CriticalSyncWindowCheck check = new CriticalSyncWindowCheck(1);
     for (int i = 0; i < 8; i++) {
-      check.evaluate(new CombatHitEvent("p", System.nanoTime(), 3.1D, true, false, 0.2F, false, false, 80_000_000L));
+      check.evaluate(new CombatHitEvent("p", System.nanoTime(), 3.1D, true, false, 0.2F, false, false, 80_000_000L, ""));
     }
-    assertTrue(check.evaluate(new CombatHitEvent("p", System.nanoTime(), 3.2D, true, false, 0.25F, false, false, 79_000_000L)).suspicious());
+    assertTrue(check.evaluate(new CombatHitEvent("p", System.nanoTime(), 3.2D, true, false, 0.25F, false, false, 79_000_000L, "")).suspicious());
   }
 }

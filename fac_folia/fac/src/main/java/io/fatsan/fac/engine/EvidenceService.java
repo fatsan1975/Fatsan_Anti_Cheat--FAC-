@@ -37,4 +37,9 @@ public final class EvidenceService {
       return new ArrayList<>(deque);
     }
   }
+
+  /** Removes all evidence for the given player. Called on disconnect. */
+  public void clearPlayer(String playerId) {
+    byPlayer.remove(playerId);
+  }
 }
